@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">Отчеты (по активному времени)</h3>
+
+<form method="get" class="row g-2 mb-3">
+  <div class="col-auto">
+    <label class="form-label mb-0">Год</label>
+    <input class="form-control" name="year" value="{{ year }}" style="width:120px">
+  </div>
+  <div class="col-auto">
+    <label class="form-label mb-0">Месяц</label>
+    <input class="form-control" name="month" value="{{ month }}" style="width:120px">
+  </div>
+  <div class="col-auto">
+    <label class="form-label mb-0">Сотрудник</label>
+    <select class="form-select" name="user_id" style="min-width: 220px;">
+      {% for u in selectable_users %}
+        <option value="{{ u.id }}" {% if u.id == selected_user.id %}selected{% endif %}>
+          {{ u.last_name }} {{ u.first_name }} ({{ u.role }})
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto align-self-end">
+    <button class="btn btn-outline-primary">Показать</button>
+  </div>
+  <div class="col-auto align-self-end">
+    <a class="btn btn-outline-success" href="{{ url_for('export_csv', year=year, month=month, user_id=selected_user.id) }}">Экспорт CSV</a>
+  </div>
+</form>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="mb-2 text-muted">
+          Период: {{ start }} — {{ end }} |
+          Итого: {{ (total_minutes//60) }} ч {{ (total_minutes%60) }} мин
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr>
+              <th>Дата</th><th>Активное время</th>
+            </tr></thead>
+            <tbody>
+              {% for d in daily %}
+              {% set m = (d.active_seconds // 60) %}
+              <tr>
+                <td>{{ d.work_date }}</td>
+                <td>{{ (m//60) }} ч {{ (m%60) }} мин</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="2" class="text-muted">Нет данных</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Заявки на перерыв (период)</h5>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Интервал</th><th>Статус</th></tr></thead>
+            <tbody>
+              {% for b in breaks %}
+              <tr>
+                <td>{{ b.start_at.strftime("%Y-%m-%d %H:%M") }} — {{ b.end_at.strftime("%H:%M") }}</td>
+                <td>
+                  {% if b.status == 'APPROVED' %}
+                    <span class="badge bg-success">APPROVED</span>
+                  {% elif b.status == 'REJECTED' %}
+                    <span class="badge bg-danger">REJECTED</span>
+                  {% else %}
+                    <span class="badge bg-secondary">PENDING</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="2" class="text-muted">Нет заявок</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

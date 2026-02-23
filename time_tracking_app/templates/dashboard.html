@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="mb-0">Панель сотрудника</h3>
+    <div class="text-muted">Неделя: {{ start }} — {{ end }}</div>
+  </div>
+  <div class="text-end">
+    {% if on_break %}
+      <span id="stateBadge" class="badge bg-warning text-dark">ПЕРЕРЫВ</span>
+    {% elif is_active_now %}
+      <span id="stateBadge" class="badge bg-success">АКТИВЕН</span>
+    {% else %}
+      <span id="stateBadge" class="badge bg-secondary">НЕАКТИВЕН</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Активное время</h5>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr><th>Дата</th><th>Активное время</th></tr>
+            </thead>
+
+            <tbody>
+              {% for d in days %}
+                {% set h = d.active_seconds // 3600 %}
+                {% set mm = (d.active_seconds % 3600) // 60 %}
+                {% set s = d.active_seconds % 60 %}
+                <tr>
+                  <td>{{ d.date }}</td>
+                  <td>
+                    <span class="dayTime" data-date="{{ d.date }}">{{ h }} ч {{ mm }} мин {{ s }} сек</span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+
+            <tfoot>
+              {% set th = total_active_seconds // 3600 %}
+              {% set tmm = (total_active_seconds % 3600) // 60 %}
+              {% set ts = total_active_seconds % 60 %}
+              <tr>
+                <th>Итого</th>
+                <th><span id="totalTime">{{ th }} ч {{ tmm }} мин {{ ts }} сек</span></th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Перерыв</h5>
+        <form method="post" action="{{ url_for('breaks') }}" class="d-flex gap-2">
+          <input type="hidden" name="action" value="request_break">
+          <select class="form-select" name="minutes" style="max-width: 180px;">
+            <option value="10">10 мин</option>
+            <option value="15" selected>15 мин</option>
+            <option value="30">30 мин</option>
+            <option value="60">60 мин</option>
+          </select>
+          <button class="btn btn-warning" type="submit">Заявка</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Последние заявки</h5>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Создано</th><th>Интервал</th><th>Статус</th></tr></thead>
+            <tbody>
+              {% for b in recent_breaks %}
+              <tr>
+                <td>{{ b.requested_at.strftime("%Y-%m-%d %H:%M") }}</td>
+                <td>{{ b.start_at.strftime("%H:%M") }} — {{ b.end_at.strftime("%H:%M") }}</td>
+                <td>
+                  {% if b.status == 'APPROVED' %}
+                    <span class="badge bg-success">APPROVED</span>
+                  {% elif b.status == 'REJECTED' %}
+                    <span class="badge bg-danger">REJECTED</span>
+                  {% else %}
+                    <span class="badge bg-secondary">PENDING</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="3" class="text-muted">Нет данных</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  function fmt(sec) {
+    sec = Math.max(0, parseInt(sec || 0, 10));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return `${h} ч ${m} мин ${s} сек`;
+  }
+
+  let serverSec = 0;
+  let shownSec = 0;
+  let activeNow = false;
+  let onBreak = false;
+  let todayStr = "";
+  let lastTickMs = Date.now();
+
+  function render() {
+    document.querySelectorAll(".dayTime").forEach(sp => {
+      if (sp.getAttribute("data-date") === todayStr) {
+        sp.textContent = fmt(shownSec);
+      }
+    });
+
+    const total = document.getElementById("totalTime");
+    if (total) total.textContent = fmt(shownSec);
+
+    const badge = document.getElementById("stateBadge");
+    if (badge) {
+      if (onBreak) {
+        badge.className = "badge bg-warning text-dark";
+        badge.textContent = "ПЕРЕРЫВ";
+      } else if (activeNow) {
+        badge.className = "badge bg-success";
+        badge.textContent = "АКТИВЕН";
+      } else {
+        badge.className = "badge bg-secondary";
+        badge.textContent = "НЕАКТИВЕН";
+      }
+    }
+  }
+
+  async function sync() {
+    try {
+      const r = await fetch("/api/me/live", { cache: "no-store" });
+      if (!r.ok) return;
+      const data = await r.json();
+
+      todayStr = data.date;
+      serverSec = parseInt(data.active_seconds || 0, 10);
+      activeNow = !!data.is_active_now;
+      onBreak = !!data.on_break;
+
+      // Главное: НЕ ОТКАТЫВАЕМСЯ назад
+      shownSec = Math.max(shownSec, serverSec);
+
+      lastTickMs = Date.now();
+      render();
+    } catch (e) {}
+  }
+
+  function tick() {
+    const now = Date.now();
+    const elapsed = now - lastTickMs;
+
+    if (elapsed >= 1000) {
+      const inc = Math.floor(elapsed / 1000);
+      lastTickMs += inc * 1000;
+
+      if (activeNow && !onBreak) {
+        shownSec += inc;          // тикаем плавно
+      } else {
+        shownSec = Math.max(shownSec, serverSec); // заморозка без отката
+      }
+
+      render();
+    }
+  }
+
+  sync();
+  setInterval(sync, 5000);
+  setInterval(tick, 200);
+})();
+</script>
+
+
+{% endblock %}

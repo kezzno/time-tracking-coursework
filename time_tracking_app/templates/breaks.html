@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">Перерывы</h3>
+
+{% if current_user.role != 'admin' %}
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <h5 class="card-title">Подать заявку на перерыв</h5>
+    <form method="post" class="d-flex gap-2">
+      <input type="hidden" name="action" value="request_break">
+      <select class="form-select" name="minutes" style="max-width: 220px;">
+        <option value="10">10 минут</option>
+        <option value="15" selected>15 минут</option>
+        <option value="30">30 минут</option>
+        <option value="60">60 минут</option>
+      </select>
+      <button class="btn btn-warning" type="submit">Отправить</button>
+    </form>
+    <div class="text-muted small mt-2">Заявка создается с текущего момента. Подтверждает администратор.</div>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-secondary">Вы администратор: можно утверждать/отклонять заявки.</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Сотрудник</th>
+            <th>Создано</th>
+            <th>Интервал</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in items %}
+          <tr>
+            <td>{{ b.id }}</td>
+            <td>{{ b.user.last_name }} {{ b.user.first_name }}</td>
+            <td>{{ b.requested_at.strftime("%Y-%m-%d %H:%M") }}</td>
+            <td>{{ b.start_at.strftime("%H:%M") }} — {{ b.end_at.strftime("%H:%M") }}</td>
+            <td>
+              {% if b.status == 'APPROVED' %}
+                <span class="badge bg-success">APPROVED</span>
+              {% elif b.status == 'REJECTED' %}
+                <span class="badge bg-danger">REJECTED</span>
+              {% else %}
+                <span class="badge bg-secondary">PENDING</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if current_user.role == 'admin' and b.status == 'PENDING' %}
+                <form method="post" class="d-inline">
+                  <input type="hidden" name="break_id" value="{{ b.id }}">
+                  <button class="btn btn-sm btn-success" name="action" value="approve" type="submit">Утвердить</button>
+                  <button class="btn btn-sm btn-outline-danger" name="action" value="reject" type="submit">Отклонить</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-muted">Нет заявок</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
