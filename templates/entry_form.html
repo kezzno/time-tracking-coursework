@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h4 class="mb-3">{% if mode=='new' %}Добавить запись{% else %}Редактировать запись{% endif %}</h4>
+        <form method="post">
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Дата</label>
+              <input class="form-control" type="date" name="entry_date" required
+                     value="{{ entry.entry_date.isoformat() if entry else '' }}">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Начало</label>
+              <input class="form-control" type="time" name="start_time" required
+                     value="{{ entry.start_time|localtime if entry else '' }}">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Конец</label>
+              <input class="form-control" type="time" name="end_time" required
+                     value="{{ entry.end_time|localtime if entry else '' }}">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Тип</label>
+              <select class="form-select" name="entry_type">
+                {% set v = entry.entry_type if entry else 'WORK' %}
+                <option value="WORK" {% if v=='WORK' %}selected{% endif %}>WORK</option>
+                <option value="BREAK" {% if v=='BREAK' %}selected{% endif %}>BREAK</option>
+                <option value="OTHER" {% if v=='OTHER' %}selected{% endif %}>OTHER</option>
+              </select>
+            </div>
+            <div class="col-md-8 mb-3">
+              <label class="form-label">Проект</label>
+              <input class="form-control" name="project" value="{{ entry.project if entry else '' }}">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Комментарий</label>
+            <textarea class="form-control" name="comment" rows="3">{{ entry.comment if entry else '' }}</textarea>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Сохранить</button>
+            <a class="btn btn-secondary" href="{{ url_for('dashboard') }}">Отмена</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
